@@ -20,33 +20,25 @@ RUN apt-get -y -qq update \
     # /home/jovyan/.cache directory owned by root
     # Create /opt/install to ensure it's writable by pip
  && mkdir -p /opt/install \
- && chown -R $NB_UID:$NB_GID $HOME /opt/install \
- && rm -rf /var/lib/apt/lists/*
+ && chown -R $NB_UID:$NB_GID $HOME /opt/install
 
-# Install a VNC server, either TigerVNC (default) or TurboVNC
-ARG vncserver=tigervnc
-RUN if [ "${vncserver}" = "tigervnc" ]; then \
-        echo "Installing TigerVNC"; \
-        apt-get -y -qq update; \
-        apt-get -y -qq install \
-            tigervnc-standalone-server \
-            tigervnc-xorg-extension \
-        ; \
-        rm -rf /var/lib/apt/lists/*; \
-    fi
-ENV PATH=/opt/TurboVNC/bin:$PATH
-RUN if [ "${vncserver}" = "turbovnc" ]; then \
-        echo "Installing TurboVNC"; \
-        # Install instructions from https://turbovnc.org/Downloads/YUM
-        wget -q -O- https://packagecloud.io/dcommander/turbovnc/gpgkey | \
-        gpg --dearmor >/etc/apt/trusted.gpg.d/TurboVNC.gpg; \
-        wget -O /etc/apt/sources.list.d/TurboVNC.list https://raw.githubusercontent.com/TurboVNC/repo/main/TurboVNC.list; \
-        apt-get -y -qq update; \
-        apt-get -y -qq install \
-            turbovnc \
-        ; \
-        rm -rf /var/lib/apt/lists/*; \
-    fi
+ENV NVIDIA_VISIBLE_DEVICES="all"
+ENV NVIDIA_DRIVER_CAPABILITIES="all"
+ENV PATH=/opt/TurboVNC/bin:/opt/VirtualGL/bin:$PATH
+
+ARG VIRTUALGL_VERSION=3.1.1
+RUN wget -q "https://github.com/VirtualGL/virtualgl/releases/download/${VIRTUALGL_VERSION}/virtualgl_${VIRTUALGL_VERSION}_amd64.deb" -O virtualgl.deb \
+ && apt-get install -y -q ./virtualgl.deb \
+ && rm ./virtualgl.deb
+RUN /opt/VirtualGL/bin/vglserver_config +glx +egl +s +f +t
+
+ARG TURBOVNC_VERSION=3.1.1
+RUN wget -q "https://github.com/TurboVNC/turbovnc/releases/download/${TURBOVNC_VERSION}/turbovnc_${TURBOVNC_VERSION}_amd64.deb" -O turbovnc.deb \
+ && apt-get install -y -q ./turbovnc.deb \
+    # remove light-locker to prevent screen lock
+ && apt-get remove -y -q light-locker \
+ && rm ./turbovnc.deb \
+ && rm -rf /var/lib/apt/lists/*
 
 USER $NB_USER
 
